@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from django.http import JsonResponse
 # Create your views here.
 
 
@@ -10,13 +11,14 @@ def login(request):
         return redirect('/')
 
     if request.method == "POST":
-        username = request.POST('username', None)
-        password = request.POST('password', None)
+        username = request.POST.get('username', None)
+        password = request.POST.get('password', None)
         user = authenticate(username=username, password=password)
         if user is not None:
             request.session['user_id'] = user.id
-            return redirect('/')
-        return render(request, 'user/login.html', {'error': 'Invalid username or password'})
+            return JsonResponse({'success': 'True'}, safe=False)
+        return JsonResponse({'success': 'False'}, safe=False)
+        
     return render(request, 'user/login.html')
 
 
@@ -26,24 +28,24 @@ def signup(request):
         return redirect('/')
 
     if request.method == "POST":
-        username = request.POST('username', None)
-        password = request.POST('password', None)
-        first_name = request.POST('first_name', None)
-        last_name = request.POST('last_name', None)
+        username = request.POST.get('username', None)
+        password = request.POST.get('password', None)
+        first_name = request.POST.get('first_name', None)
+        last_name = request.POST.get('last_name', None)
 
         if username is None or password is None:
-            return render(
-                request, 'user/signup.html',
-                {'error': 'Invalid username or password'}
-            )
-
+            return JsonResponse({'success': 'False'}, safe=False)
+        
+        if User.objects.filter(username=username).exists():
+            return JsonResponse({'success': 'username'}, safe=False)
+        
         User.objects.create_user(
             username=username,
             password=password,
             first_name=first_name,
             last_name=last_name
         )
-        return redirect('/user/login')
+        return JsonResponse({'success': 'True'}, safe=False)
     return render(request, 'user/signup.html')
 
 

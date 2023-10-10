@@ -1,0 +1,116 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <title>Sign Up</title>
+    <link rel="shortcut icon" href="#">
+</head>
+<body>
+    <div style="height:610px;" class="col-lg-12 col-12">
+        <nav class="navbar navbar-expand-lg " style="background: rgb(25, 25, 145);">
+            <p class="navbar-brand" style="height:25px; font-weight:bolder;color:white">ToDo</p>
+            <button class="navbar-toggler" style="color:blue;background:white;" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+          
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+              <ul class="navbar-nav mr-auto">
+                <li class="nav-item active">
+                  <a class="nav-link" href="#"><span class="sr-only">(current)</span></a>
+                </li>
+              </ul>
+              <ul class="form-inline my-2 my-lg-0">
+                <button class="btn btn-outline-success my-2 my-sm-0" type="submit" style="color:white;" id="login">Login</button>
+            </ul>
+            </div>
+        </nav>
+        <div class="col-lg-4 col-10 mx-auto" style="margin-top:30px; border-width:thick; border-radius:30px; height:750px; background:linear-gradient(grey,rgb(56, 23, 56)); color:white;">
+                <div class="col-lg-12 col-12 ml-5" style="font-size:30px; font-weight:bolder; padding-top:10px">
+                    <p>Signup</p>
+                </div>
+                {% csrf_token %}
+                <div style="margin-top: 50x;">
+                    <div class="form-group col-lg-8 col-8 mx-auto">
+                        <label id="warning"></label>
+                    </div>
+                    <div class="form-group col-lg-8 col-8 mx-auto">
+                        <label for="firstname">First Name</label>
+                        <input type="text" class="form-control" id="firstname" placeholder="First Name">
+                    </div>
+                    <div class="form-group col-lg-8 col-8 mx-auto">
+                        <label for="lastname">Last Name</label>
+                        <input type="text" class="form-control" id="lastname" placeholder="Last Name">
+                    </div>
+                    <div class="form-group col-lg-8 col-8 mx-auto">
+                        <label for="username">Username</label>
+                        <input type="text" class="form-control" id="username" placeholder="Username">
+                    </div>
+                    <div class="form-group col-lg-8 col-8 mx-auto">
+                        <label for="password1">Password</label>
+                        <input type="password" class="form-control" id="password1" placeholder="Password" autocomplete="on">
+                    </div>
+                    <div class="form-group col-lg-8 col-8 mx-auto">
+                        <label for="password2">Re-Enter Password</label>
+                        <input type="password" class="form-control" id="password2" placeholder="Re-Enter Password" autocomplete="on">
+                    </div>
+                    <div class="mx-auto col-lg-2 col-6"style="margin-top:30px">
+                        <button type="button" class="btn btn-primary" id="signup">Signup</button>
+                    </div>
+                </div>
+        </div>
+    </div>
+</body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+<script>
+$('#signup').click(()=>{
+    var firstname = $('#firstname').val();
+    var lastname = $('#lastname').val();
+    var username = $('#username').val();
+    var password1 = $('#password1').val();
+    var password2 = $('#password2').val();
+    if(firstname == ''){
+        $('#warning').text('First Name Field cannot be empty')
+    }else if(lastname == ''){
+        $('#warning').text('Last Name Field cannot be empty')
+    }else if(username == ''){
+        $('#warning').text('Email Field cannot be empty')
+    }else if(password1 != password2){
+        $('#warning').text('Password didnot Match')
+    }else if(password1 == ''){
+        $('#warning').text('Password Field cannot be empty')
+    }else{
+        $.ajax({
+            url:'/user/signup',
+            method:'POST',
+            data:{
+                'csrfmiddlewaretoken':'{{csrf_token}}',
+                'first_name':firstname,
+                'last_name':lastname,
+                'username':username,
+                'password':password1
+            },
+            dataType:'json',
+            success:(data)=>{
+                if(data.success == 'True'){
+                    window.location.replace('/user/login')
+                }else if(data.success == 'username'){
+                    $('#warning').text('Username Already Exists')
+                }else if(data.success == 'False'){
+                    $('#warning').text('Something went wrong')
+                }
+            }
+        })
+    }
+})
+
+$('#login').click(()=>{
+    window.location.replace('/user/login')
+})
+</script>
+</html>

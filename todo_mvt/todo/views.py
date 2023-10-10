@@ -1,7 +1,10 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
+from django.http import JsonResponse
 from .models import Todo
 from datetime import datetime
+from django.db.models import Case, When, Value, CharField
+from pytz import timezone
 # Create your views here.
 
 
@@ -10,35 +13,40 @@ def index(request):
         return redirect('/user/login')
 
     flag = request.GET.get('flag', None)
-
+    UTC = timezone('Asia/Kolkata')
+    data = Todo.objects.annotate(status=Case(
+                When(is_completed=True, then=Value("completed")),
+                When(expiry__lt=datetime.now(UTC), then=Value("expired")),
+                When(expiry__gte=datetime.now(UTC), then=Value("pending")),
+                output_field=CharField()
+            )
+        )
     if not flag:
-        data = Todo.objects.filter(
-            user=request.session['user_id']
-        ).all()
+        data =  data.filter(user=request.session['user_id']).all()
 
     elif flag == "completed":
-        data = Todo.objects.filter(
+        data = data.filter(
             user=request.session['user_id'],
             is_completed=True
         ).all()
 
     elif flag == "pending":
-        data = Todo.objects.filter(
+        data = data.filter(
             user=request.session['user_id'],
             is_completed=False,
             expiry__gte=datetime.now()
         ).all()
 
     elif flag == "expired":
-        data = Todo.objects.filter(
+        data = data.filter(
             user=request.session['user_id'],
             is_completed=False,
             expiry__lt=datetime.now()
         ).all()
-    return render(request, "todo/index.html", {'data': data})
+    return render(request, "todo/index.html", {'data': data, 'current': datetime.now()})
 
 
-def add(request):
+def create(request):
 
     if not request.session.get('user_id', None):
         return redirect('/user/login')
@@ -46,21 +54,20 @@ def add(request):
     if request.method == "POST":
         title = request.POST.get('title', None)
         expiry = request.POST.get('expiry', None)
-
+        print(expiry)
+        expiry = datetime(expiry, tzinfo=timezone('Asia/Kolkata'))
         if title is None or expiry is None:
-            return render(
-                request, 'todo/add.html',
-                {'error': 'Invalid title or expiry'}
-            )
+            return JsonResponse({'success': 'False'}, safe=False)
+        
         Todo.objects.create(
             title=title,
             expiry=expiry,
             user=User.objects.get(pk=request.session['user_id'])
         )
-        return redirect("/")
-    return redirect("/todo/add.html")
+        return JsonResponse({'success': 'True'}, safe=False)
+    return render(request, "todo/add.html")
 
-def edit_helper(user, todo_ids, title, expiry, is_completed):
+def edit_helper(user, todo_ids, is_completed, title=None, expiry=None):
 
     todo = Todo.objects.filter(pk__in=todo_ids, user=user)
     todo.update(
@@ -69,38 +76,45 @@ def edit_helper(user, todo_ids, title, expiry, is_completed):
         is_completed = todo.is_completed if is_completed is None else is_completed
     )
 
-def edit(request, id = None):
+def edit(request):
     if not request.session.get('user_id', None):
         return redirect('/user/login')
     
     if request.method == "POST":
         user = User.objects.get(pk=request.session['user_id'])
-        title = request.POST.get('title', None)
-        expiry = request.POST.get('expiry', None)
         is_completed = request.POST.get('is_completed', None)
         todo_ids = request.POST.get('ids', None)
 
-        if title is None or expiry is None or is_completed is None:
+        if is_completed is None:
             return render(
                 request, 'todo/edit.html',
                 {'error': 'Data not given properly'}
             )
-        if id:
-            edit_helper(user, [id], title, expiry, is_completed)
-            return redirect("/")
         
         if todo_ids is None:
             return render(
                 request, 'todo/edit.html',
                 {'error': 'No todos selected'}
             )
-        edit_helper(user, todo_ids, title, expiry, is_completed)
+        edit_helper(user, todo_ids, is_completed)
         return redirect("/")
 
+def edit_id(request, id = None):
 
+    if not request.session.get('user_id', None):
+        return redirect('/user/login')
+    
+    if request.method == 'POST':
+        user = User.objects.get(pk=request.session['user_id'])
+        title = request.POST.get('title', None)
+        expiry = request.POST.get('expiry', None)
+        is_completed = request.POST.get('is_completed', None)
 
-def delete(request, id = None):
+        if id:
+            edit_helper(user, [id], title, expiry, is_completed)
+            return redirect("/")
 
+def delete(request):
     if request.session.get('user_id', None) is None:
         return redirect('/user/login')
     
@@ -108,6 +122,7 @@ def delete(request, id = None):
         flag = request.POST.get('flag', None)
         user = User.objects.get(pk=request.session['user_id'])
         selected = request.POST.get('selected', None)
+        id = request.POST.get('id', None)
         if id:
             Todo.objects.filter(pk=id, user=user).delete()
 
