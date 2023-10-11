@@ -13,11 +13,11 @@ def index(request):
         return redirect('/user/login')
 
     flag = request.GET.get('flag', None)
-    UTC = timezone('Asia/Kolkata')
+    zone = timezone('Asia/Kolkata')
     data = Todo.objects.annotate(status=Case(
                 When(is_completed=True, then=Value("completed")),
-                When(expiry__lt=datetime.now(UTC), then=Value("expired")),
-                When(expiry__gte=datetime.now(UTC), then=Value("pending")),
+                When(expiry__lt=datetime.now(zone), then=Value("expired")),
+                When(expiry__gte=datetime.now(zone), then=Value("pending")),
                 output_field=CharField()
             )
         )
@@ -54,8 +54,6 @@ def create(request):
     if request.method == "POST":
         title = request.POST.get('title', None)
         expiry = request.POST.get('expiry', None)
-        print(expiry)
-        expiry = datetime(expiry, tzinfo=timezone('Asia/Kolkata'))
         if title is None or expiry is None:
             return JsonResponse({'success': 'False'}, safe=False)
         
@@ -66,38 +64,20 @@ def create(request):
         )
         return JsonResponse({'success': 'True'}, safe=False)
     return render(request, "todo/add.html")
-
-def edit_helper(user, todo_ids, is_completed, title=None, expiry=None):
-
-    todo = Todo.objects.filter(pk__in=todo_ids, user=user)
-    todo.update(
-        title = todo.title if title is None else title,
-        expiry = todo.expiry if expiry is None else expiry,
-        is_completed = todo.is_completed if is_completed is None else is_completed
-    )
-
+    
 def edit(request):
     if not request.session.get('user_id', None):
         return redirect('/user/login')
     
     if request.method == "POST":
         user = User.objects.get(pk=request.session['user_id'])
-        is_completed = request.POST.get('is_completed', None)
-        todo_ids = request.POST.get('ids', None)
+        Todo.objects.filter(
+            is_completed=False, 
+            user=user, 
+            expiry__gte=datetime.now()
+        ).all().update(is_completed=True)
 
-        if is_completed is None:
-            return render(
-                request, 'todo/edit.html',
-                {'error': 'Data not given properly'}
-            )
-        
-        if todo_ids is None:
-            return render(
-                request, 'todo/edit.html',
-                {'error': 'No todos selected'}
-            )
-        edit_helper(user, todo_ids, is_completed)
-        return redirect("/")
+        return JsonResponse({'success': 'True'}, safe=False)
 
 def edit_id(request, id = None):
 
@@ -106,13 +86,17 @@ def edit_id(request, id = None):
     
     if request.method == 'POST':
         user = User.objects.get(pk=request.session['user_id'])
-        title = request.POST.get('title', None)
-        expiry = request.POST.get('expiry', None)
-        is_completed = request.POST.get('is_completed', None)
+        title_ = request.POST.get('title', None)
+        expiry_ = request.POST.get('expiry', None)
+        is_completed_ = request.POST.get('is_completed', None)
+        
+        todo = Todo.objects.filter(pk=id, user=user).first()
+        todo.title = title_ if title_ is not None else todo.title
+        todo.expiry = expiry_ if expiry_ is not None else todo.expiry
+        todo.is_completed = True if is_completed_ == 'true' else todo.is_completed
+        todo.save()
 
-        if id:
-            edit_helper(user, [id], title, expiry, is_completed)
-            return redirect("/")
+        return JsonResponse({'success': 'True'}, safe=False)
 
 def delete(request):
     if request.session.get('user_id', None) is None:
@@ -126,7 +110,7 @@ def delete(request):
         if id:
             Todo.objects.filter(pk=id, user=user).delete()
 
-        if not flag:
+        elif flag == 'all':
             Todo.objects.filter(user=user).delete()
 
         elif flag == 'completed':
@@ -151,16 +135,14 @@ def delete(request):
         
         elif flag == 'selected':
             if selected is None:
-                return render(
-                    request, 'todo/delete.html',
-                    {'error': 'No todos selected'}
-                )
+                return JsonResponse({'success': 'False'}, safe=False)
             Todo.objects.filter(
                 user=user, 
                 pk__in=selected
             ).delete()
-    
-        return redirect('/')
+        else:
+            return JsonResponse({'success': 'False'}, safe=False)
+        return JsonResponse({'success': 'True'}, safe=False)
 
 
 
